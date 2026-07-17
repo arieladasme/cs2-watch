@@ -119,8 +119,9 @@
 			<table>
 				<thead><tr><th>player</th><th>score</th><th>time</th></tr></thead>
 				<tbody>
-					{#each game.players ?? [] as p (p.name)}
-						<tr><td>{p.name}</td><td>{p.score}</td><td>{fmtDuration(p.duration_s)}</td></tr>
+					{#each game.players ?? [] as p}
+						<!-- CS2 A2S returns blank names for bots; roster-from-logs is on the roadmap -->
+						<tr><td>{p.name || '(bot)'}</td><td>{p.score}</td><td>{fmtDuration(p.duration_s)}</td></tr>
 					{:else}
 						<tr><td colspan="3" class="empty">no players</td></tr>
 					{/each}

@@ -22,7 +22,7 @@ No plugins to install on the game server. No database. One binary.
 
 - 📜 **Live log stream** — kills, chat, connects, colored, <1s latency, via SSE
 - ⌨️ **RCON console** — command input with output history
-- 👥 **Player table** — name / score / time, auto-refreshed every 3s
+- 👥 **Player table** — name / score / time, auto-refreshed every 3s *(CS2's A2S replies blank names for bots; roster-from-logs is on the roadmap)*
 - 📊 **Server header** — map, game phase, CT/T scores (straight from log POST headers)
 - 🔁 **Self-registering** — configures `logaddress_add_http` on the game server itself via RCON, and re-registers automatically after a server restart
 - 🔒 **Token auth**, binds to localhost by default, RCON password never leaves the panel host
