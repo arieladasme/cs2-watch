@@ -1,0 +1,7 @@
+{
+  "game_server": "192.168.1.128:27015",
+  "rcon_password": "changeme",
+  "listen": "127.0.0.1:8080",
+  "ingest_url": "http://127.0.0.1:8080/ingest",
+  "auth_token": "changeme-long-random"
+}
