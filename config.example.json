@@ -3,5 +3,12 @@
   "rcon_password": "changeme",
   "listen": "127.0.0.1:8080",
   "ingest_url": "http://127.0.0.1:8080/ingest",
-  "auth_token": "changeme-long-random"
+  "auth_token": "changeme-long-random",
+  "maps": ["ar_shoots", "ar_pool_day", "ar_baggage"],
+  "quick_commands": [
+    { "label": "End warmup", "command": "mp_warmup_end" },
+    { "label": "Restart round", "command": "mp_restartgame 1" },
+    { "label": "Wake server", "command": "sv_hibernate_when_empty 0" },
+    { "label": "Kick bots", "command": "bot_kick" }
+  ]
 }

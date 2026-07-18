@@ -12,12 +12,19 @@ import (
 	"time"
 )
 
+type QuickCommand struct {
+	Label   string `json:"label"`
+	Command string `json:"command"`
+}
+
 type Config struct {
-	GameServer   string `json:"game_server"`   // host:port — use the LAN IP (CS2 binds RCON on it, not loopback)
-	RconPassword string `json:"rcon_password"` //
-	Listen       string `json:"listen"`        // panel bind address, default 127.0.0.1:8080
-	IngestURL    string `json:"ingest_url"`    // URL the game server POSTs logs to (this panel's /ingest)
-	AuthToken    string `json:"auth_token"`    // static token for the panel API/SSE
+	GameServer    string         `json:"game_server"`    // host:port — use the LAN IP (CS2 binds RCON on it, not loopback)
+	RconPassword  string         `json:"rcon_password"`  //
+	Listen        string         `json:"listen"`         // panel bind address, default 127.0.0.1:8080
+	IngestURL     string         `json:"ingest_url"`     // URL the game server POSTs logs to (this panel's /ingest)
+	AuthToken     string         `json:"auth_token"`     // static token for the panel API/SSE
+	QuickCommands []QuickCommand `json:"quick_commands"` // action-bar buttons; sensible defaults if empty
+	Maps          []string       `json:"maps"`           // quick changelevel list; hidden if empty
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -34,6 +41,14 @@ func loadConfig(path string) (*Config, error) {
 	}
 	if cfg.Listen == "" {
 		cfg.Listen = "127.0.0.1:8080"
+	}
+	if len(cfg.QuickCommands) == 0 {
+		cfg.QuickCommands = []QuickCommand{
+			{Label: "End warmup", Command: "mp_warmup_end"},
+			{Label: "Restart round", Command: "mp_restartgame 1"},
+			{Label: "Wake server", Command: "sv_hibernate_when_empty 0"},
+			{Label: "Kick bots", Command: "bot_kick"},
+		}
 	}
 	return &cfg, nil
 }

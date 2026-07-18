@@ -49,5 +49,9 @@ func registerAPI(mux *http.ServeMux, cfg *Config, rc *RconClient, hub *Hub) {
 		writeJSON(w, hub.StateSnapshot())
 	}))
 
+	mux.HandleFunc("GET /api/meta", authed(cfg, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"quick_commands": cfg.QuickCommands, "maps": cfg.Maps})
+	}))
+
 	mux.HandleFunc("GET /events", authed(cfg, hub.ServeSSE))
 }

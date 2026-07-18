@@ -11,12 +11,13 @@ import (
 // State is the last known snapshot of the game server, fed by the X-Game-*
 // headers of logaddress_add_http POSTs and the A2S poller.
 type State struct {
-	Map       string    `json:"map"`
-	GameState string    `json:"game_state"`
-	ScoreCT   string    `json:"score_ct"`
-	ScoreT    string    `json:"score_t"`
-	Players   []Player  `json:"players"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Map       string         `json:"map"`
+	GameState string         `json:"game_state"`
+	ScoreCT   string         `json:"score_ct"`
+	ScoreT    string         `json:"score_t"`
+	Players   []Player       `json:"players"` // A2S fallback (blank names on CS2)
+	Roster    []RosterPlayer `json:"roster"`  // parsed from log lines, preferred by the UI
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 type Player struct {
@@ -39,10 +40,16 @@ type Hub struct {
 	instanceToken string
 	lastPost      time.Time
 	clients       map[chan []byte]struct{}
+	roster        map[int]*RosterPlayer
+	chat          []ChatMsg
 }
 
 func NewHub(maxLines int) *Hub {
-	return &Hub{max: maxLines, clients: make(map[chan []byte]struct{})}
+	return &Hub{
+		max:     maxLines,
+		clients: make(map[chan []byte]struct{}),
+		roster:  make(map[int]*RosterPlayer),
+	}
 }
 
 func (h *Hub) broadcastLocked(ev event) {
@@ -132,6 +139,7 @@ func (h *Hub) ServeSSE(w http.ResponseWriter, r *http.Request) {
 	snap, _ := json.Marshal(event{Type: "snapshot", Data: map[string]any{
 		"state": h.state,
 		"lines": h.tailLocked(200),
+		"chat":  h.chat,
 	}})
 	h.clients[ch] = struct{}{}
 	h.mu.Unlock()

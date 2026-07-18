@@ -4,15 +4,23 @@
 	let token = $state('');
 	let tokenInput = $state('');
 	let connected = $state(false);
-	let game = $state({ map: '', game_state: '', score_ct: '', score_t: '', players: [] });
+	let game = $state({ map: '', game_state: '', score_ct: '', score_t: '', players: [], roster: [] });
 	let lines = $state([]);
+	let chat = $state([]);
 	let cmd = $state('');
 	let consoleLog = $state([]);
 	let autoscroll = $state(true);
+	let tab = $state('log');
+	let meta = $state({ quick_commands: [], maps: [] });
+	let mapSel = $state('');
 	let logBox = $state(null);
+	let chatBox = $state(null);
 	let consoleBox = $state(null);
 
 	let es = null;
+
+	const roster = $derived(game.roster ?? []);
+	const hasRoster = $derived(roster.length > 0);
 
 	function connect() {
 		if (!token) return;
@@ -26,16 +34,31 @@
 			if (ev.type === 'snapshot') {
 				game = ev.data.state ?? game;
 				lines = ev.data.lines ?? [];
+				chat = ev.data.chat ?? [];
 			} else if (ev.type === 'lines') {
 				lines.push(...ev.data);
 				if (lines.length > 2000) lines = lines.slice(-2000);
 			} else if (ev.type === 'state') {
 				ev.data.players ??= game.players;
+				ev.data.roster ??= game.roster;
 				game = ev.data;
 			} else if (ev.type === 'players') {
 				game.players = ev.data ?? [];
+			} else if (ev.type === 'roster') {
+				game.roster = ev.data ?? [];
+			} else if (ev.type === 'chat') {
+				chat.push(ev.data);
+				if (chat.length > 200) chat = chat.slice(-200);
 			}
 		};
+		fetchMeta();
+	}
+
+	async function fetchMeta() {
+		try {
+			const r = await fetch('/api/meta', { headers: { Authorization: `Bearer ${token}` } });
+			if (r.ok) meta = await r.json();
+		} catch {}
 	}
 
 	function saveToken(e) {
@@ -44,11 +67,8 @@
 		connect();
 	}
 
-	async function send(e) {
-		e.preventDefault();
-		const command = cmd.trim();
+	async function run(command) {
 		if (!command) return;
-		cmd = '';
 		try {
 			const r = await fetch('/api/rcon', {
 				method: 'POST',
@@ -60,6 +80,29 @@
 		} catch (err) {
 			consoleLog.push({ command, output: `error: ${err.message}` });
 		}
+	}
+
+	function send(e) {
+		e.preventDefault();
+		const command = cmd.trim();
+		cmd = '';
+		run(command);
+	}
+
+	function kick(p) {
+		if (confirm(`Kick ${p.name}?`)) run(`kickid ${p.userid}`);
+	}
+
+	function changeMap() {
+		if (mapSel) run(`changelevel ${mapSel}`);
+	}
+
+	function hsPct(p) {
+		return p.frags > 0 ? Math.round((p.hs / p.frags) * 100) + '%' : '—';
+	}
+
+	function teamTag(t) {
+		return t === 'TERRORIST' ? 'T' : t === 'CT' ? 'CT' : t === 'Spectator' ? 'SPEC' : '—';
 	}
 
 	function lineClass(line) {
@@ -78,7 +121,14 @@
 
 	$effect(() => {
 		void lines.length;
+		void tab;
 		if (autoscroll && logBox) logBox.scrollTop = logBox.scrollHeight;
+	});
+
+	$effect(() => {
+		void chat.length;
+		void tab;
+		if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
 	});
 
 	$effect(() => {
@@ -102,8 +152,8 @@
 		{#if connected || game.map}
 			<span class="map">{game.map || '—'}</span>
 			<span class="phase">{game.game_state || '—'}</span>
-			<span class="score">CT {game.score_ct || 0} : {game.score_t || 0} T</span>
-			<span class="count">{(game.players ?? []).length} players</span>
+			<span class="score"><b class="ct">CT {game.score_ct || 0}</b> : <b class="t">{game.score_t || 0} T</b></span>
+			<span class="count">{hasRoster ? roster.length : (game.players ?? []).length} players</span>
 		{/if}
 		{#if !connected}
 			<form class="tokenform" onsubmit={saveToken}>
@@ -114,25 +164,78 @@
 		<label class="scroll"><input type="checkbox" bind:checked={autoscroll} /> autoscroll</label>
 	</header>
 
+	{#if connected}
+		<div class="actions">
+			{#each meta.quick_commands ?? [] as qc}
+				<button onclick={() => run(qc.command)}>{qc.label}</button>
+			{/each}
+			{#if (meta.maps ?? []).length}
+				<span class="sep"></span>
+				<select bind:value={mapSel}>
+					<option value="" disabled selected>map…</option>
+					{#each meta.maps as m}<option value={m}>{m}</option>{/each}
+				</select>
+				<button onclick={changeMap} disabled={!mapSel}>changelevel</button>
+			{/if}
+		</div>
+	{/if}
+
 	<main>
 		<aside>
-			<table>
-				<thead><tr><th>player</th><th>score</th><th>time</th></tr></thead>
-				<tbody>
-					{#each game.players ?? [] as p}
-						<!-- CS2 A2S returns blank names for bots; roster-from-logs is on the roadmap -->
-						<tr><td>{p.name || '(bot)'}</td><td>{p.score}</td><td>{fmtDuration(p.duration_s)}</td></tr>
-					{:else}
-						<tr><td colspan="3" class="empty">no players</td></tr>
-					{/each}
-				</tbody>
-			</table>
+			{#if hasRoster}
+				<table>
+					<thead><tr><th></th><th>player</th><th>K</th><th>D</th><th>A</th><th>HS</th><th></th></tr></thead>
+					<tbody>
+						{#each roster as p}
+							<tr>
+								<td class="team {p.team === 'TERRORIST' ? 't' : p.team === 'CT' ? 'ct' : ''}">{teamTag(p.team)}</td>
+								<td class="name" title={p.steamid}>{p.name}{p.bot ? ' 🤖' : ''}</td>
+								<td class="num">{p.frags}</td>
+								<td class="num">{p.deaths}</td>
+								<td class="num">{p.assists}</td>
+								<td class="num">{hsPct(p)}</td>
+								<td><button class="kickbtn" title="kick" onclick={() => kick(p)}>✕</button></td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{:else}
+				<table>
+					<thead><tr><th>player</th><th>score</th><th>time</th></tr></thead>
+					<tbody>
+						{#each game.players ?? [] as p}
+							<tr><td>{p.name || '(bot)'}</td><td class="num">{p.score}</td><td>{fmtDuration(p.duration_s)}</td></tr>
+						{:else}
+							<tr><td colspan="3" class="empty">no players</td></tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
 		</aside>
 
-		<section class="log" bind:this={logBox}>
-			{#each lines as line}
-				<div class="line {lineClass(line)}">{line}</div>
-			{/each}
+		<section class="right">
+			<nav class="tabs">
+				<button class:active={tab === 'log'} onclick={() => (tab = 'log')}>Log</button>
+				<button class:active={tab === 'chat'} onclick={() => (tab = 'chat')}>Chat {chat.length ? `(${chat.length})` : ''}</button>
+			</nav>
+			{#if tab === 'log'}
+				<div class="log" bind:this={logBox}>
+					{#each lines as line}
+						<div class="line {lineClass(line)}">{line}</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="log chatlog" bind:this={chatBox}>
+					{#each chat as c}
+						<div class="line">
+							<span class={c.team === 'TERRORIST' ? 't' : c.team === 'CT' ? 'ct' : ''}>{c.name}</span
+							>{c.team_only ? ' (team)' : ''}: <span class="msg">{c.msg}</span>
+						</div>
+					{:else}
+						<div class="empty">no chat yet</div>
+					{/each}
+				</div>
+			{/if}
 		</section>
 	</main>
 
@@ -161,7 +264,7 @@
 	}
 	.app {
 		display: grid;
-		grid-template-rows: auto 1fr auto;
+		grid-template-rows: auto auto 1fr auto;
 		height: 100vh;
 	}
 	header {
@@ -175,40 +278,76 @@
 	.brand { font-weight: bold; color: #e8a33d; }
 	.dot { width: 9px; height: 9px; border-radius: 50%; background: #b33; }
 	.dot.on { background: #3b3; }
-	.score { color: #7db3d9; }
+	.ct { color: #6ea8dc; }
+	.t { color: #d9a05b; }
 	.count, .phase { color: #8a949c; }
 	.tokenform, footer form { display: flex; gap: 0.4rem; flex: 1; }
 	.scroll { margin-left: auto; color: #8a949c; user-select: none; }
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.35rem 0.75rem;
+		background: #12171d;
+		border-bottom: 1px solid #232b33;
+		flex-wrap: wrap;
+	}
+	.actions .sep { width: 1px; height: 1.2rem; background: #2a333c; margin: 0 0.3rem; }
 	main {
 		display: grid;
-		grid-template-columns: 280px 1fr;
+		grid-template-columns: 340px 1fr;
 		min-height: 0;
 	}
 	aside { border-right: 1px solid #232b33; overflow-y: auto; }
 	table { width: 100%; border-collapse: collapse; }
-	th, td { text-align: left; padding: 0.25rem 0.5rem; border-bottom: 1px solid #1a2128; }
+	th, td { text-align: left; padding: 0.25rem 0.45rem; border-bottom: 1px solid #1a2128; }
 	th { color: #8a949c; position: sticky; top: 0; background: #101418; }
-	td:nth-child(2), th:nth-child(2) { text-align: right; }
-	.empty { color: #5a646c; }
-	.log { overflow-y: auto; padding: 0.4rem 0.6rem; }
+	.num { text-align: right; }
+	.name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.team { font-weight: bold; }
+	.team.ct { color: #6ea8dc; }
+	.team.t { color: #d9a05b; }
+	.kickbtn {
+		background: none;
+		border: none;
+		color: #5a646c;
+		cursor: pointer;
+		padding: 0 0.2rem;
+	}
+	.kickbtn:hover { color: #e06c60; }
+	.empty { color: #5a646c; padding: 0.5rem; }
+	.right { display: flex; flex-direction: column; min-height: 0; }
+	.tabs { display: flex; border-bottom: 1px solid #232b33; }
+	.tabs button {
+		background: none;
+		border: none;
+		border-bottom: 2px solid transparent;
+		color: #8a949c;
+		padding: 0.35rem 0.9rem;
+		cursor: pointer;
+		font: inherit;
+	}
+	.tabs button.active { color: #cdd6dd; border-bottom-color: #e8a33d; }
+	.log { flex: 1; overflow-y: auto; padding: 0.4rem 0.6rem; }
 	.line { white-space: pre-wrap; word-break: break-all; line-height: 1.45; }
 	.line.kill { color: #e06c60; }
 	.line.chat { color: #98c379; }
 	.line.conn { color: #61afef; }
 	.line.rcon { color: #c678dd; }
+	.chatlog .msg { color: #98c379; }
 	footer { border-top: 1px solid #232b33; background: #14191f; }
 	.console { max-height: 180px; overflow-y: auto; padding: 0.3rem 0.6rem; }
 	.console .cmd { color: #e8a33d; }
 	.console pre { margin: 0 0 0.4rem 0; white-space: pre-wrap; color: #9aa5ad; }
 	footer form { padding: 0.4rem 0.6rem; }
-	input {
-		flex: 1;
+	input, select {
 		background: #0c1014;
 		border: 1px solid #2a333c;
 		color: #cdd6dd;
 		padding: 0.35rem 0.5rem;
 		font: inherit;
 	}
+	footer input, .tokenform input { flex: 1; }
 	button {
 		background: #23415a;
 		border: 1px solid #33587a;
@@ -218,4 +357,5 @@
 		cursor: pointer;
 	}
 	button:hover { background: #2b4f6e; }
+	button:disabled { opacity: 0.45; cursor: default; }
 </style>

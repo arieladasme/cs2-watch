@@ -45,6 +45,7 @@ func registerIngest(mux *http.ServeMux, cfg *Config, hub *Hub) {
 				lines = append(lines, line)
 			}
 		}
+		hub.ApplyLogLines(lines)
 		hub.AddLines(lines)
 
 		// 200 acks this X-LogBytes range; the server then advances its buffer.
