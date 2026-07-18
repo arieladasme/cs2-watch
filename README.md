@@ -21,8 +21,11 @@ No plugins to install on the game server. No database. One binary.
 ## Features
 
 - 📜 **Live log stream** — kills, chat, connects, colored, <1s latency, via SSE
-- ⌨️ **RCON console** — command input with output history
-- 👥 **Player table** — name / score / time, auto-refreshed every 3s *(CS2's A2S replies blank names for bots; roster-from-logs is on the roadmap)*
+- 🏆 **Live scoreboard** — real names, teams, K/D/A/HS% parsed from log lines, ping from `status` (no plugin needed)
+- 🔨 **Admin actions** — kick and ban per player, unban, offline bans by SteamID. CS2 dropped native `banid`, so the panel enforces its own persistent ban list (SteamID or IP match, auto-kick on connect)
+- 💬 **Chat tab** — player chat separated from the raw log, plus *say* to talk to the server
+- ⚡ **Quick commands** — configurable action bar (end warmup, restart, kick bots, …) and one-click `changelevel`
+- ⌨️ **RCON console** — free-form command input with output history
 - 📊 **Server header** — map, game phase, CT/T scores (straight from log POST headers)
 - 🔁 **Self-registering** — configures `logaddress_add_http` on the game server itself via RCON, and re-registers automatically after a server restart
 - 🔒 **Token auth**, binds to localhost by default, RCON password never leaves the panel host
@@ -86,9 +89,10 @@ Real log samples captured from a live CS2 server (including the `X-Game-*` heade
 
 ## Roadmap
 
-- Structured event parsing (kills → frags feed, chat tab)
+- Visual kill feed panel
 - Log history + search (SQLite)
 - Multi-server support
+- Optional CS2-SimpleAdmin integration for server-side bans
 
 ## ❤️ Support
 
