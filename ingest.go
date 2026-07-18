@@ -41,9 +41,11 @@ func registerIngest(mux *http.ServeMux, cfg *Config, hub *Hub) {
 		sc := bufio.NewScanner(r.Body)
 		sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for sc.Scan() {
-			if line := strings.TrimRight(sc.Text(), "\r"); line != "" {
-				lines = append(lines, line)
+			line := strings.TrimRight(sc.Text(), "\r")
+			if line == "" || strings.Contains(line, `: command "status"`) {
+				continue // drop our own 10s status-poll echo, it drowns the log view
 			}
+			lines = append(lines, line)
 		}
 		hub.ApplyLogLines(lines)
 		hub.AddLines(lines)

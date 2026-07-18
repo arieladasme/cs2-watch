@@ -42,6 +42,29 @@ type Hub struct {
 	clients       map[chan []byte]struct{}
 	roster        map[int]*RosterPlayer
 	chat          []ChatMsg
+	bans          *BanList
+	onBanned      func(userid int)
+}
+
+// SetBanEnforcement wires the ban list and the kick action used when a
+// banned player connects.
+func (h *Hub) SetBanEnforcement(bans *BanList, kick func(userid int)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.bans = bans
+	h.onBanned = kick
+}
+
+// FindBySteamID returns a copy of the online player with that steamid.
+func (h *Hub) FindBySteamID(steamID string) (RosterPlayer, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, p := range h.roster {
+		if p.SteamID == steamID {
+			return *p, true
+		}
+	}
+	return RosterPlayer{}, false
 }
 
 func NewHub(maxLines int) *Hub {

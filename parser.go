@@ -26,7 +26,8 @@ var (
 	reKill     = regexp.MustCompile(`^` + pRe + ` \[-?\d+ -?\d+ -?\d+\] killed ` + pRe + ` \[-?\d+ -?\d+ -?\d+\] with "([^"]+)"( \(headshot\))?`)
 	reAssist   = regexp.MustCompile(`^` + pRe + ` assisted killing ` + pRe)
 	reSuicide  = regexp.MustCompile(`^` + pRe + ` \[-?\d+ -?\d+ -?\d+\] committed suicide with "([^"]+)"`)
-	reConnect  = regexp.MustCompile(`^` + pRe + ` connected, address`)
+	reConnect  = regexp.MustCompile(`^` + pRe + ` connected, address "([^"]*)"`)
+	reConSay   = regexp.MustCompile(`^"Console<0>" say "(.*)"$`)
 	reDisconn  = regexp.MustCompile(`^` + pRe + ` disconnected`)
 	reSwitched = regexp.MustCompile(`^"(.*?)<(\d+)><([^>]*)>" switched from team <([^>]*)> to <([^>]*)>$`)
 	reWorld    = regexp.MustCompile(`^World triggered "([^"]+)"(?: on "([^"]+)")?`)
@@ -42,6 +43,8 @@ type RosterPlayer struct {
 	Deaths  int    `json:"deaths"`
 	HS      int    `json:"hs"`
 	Assists int    `json:"assists"`
+	Ping    int    `json:"ping"`
+	Addr    string `json:"addr,omitempty"` // ip:port from connect line / status
 }
 
 type ChatMsg struct {
@@ -118,8 +121,25 @@ func (h *Hub) applyLocked(line string) bool {
 		p.Deaths++
 		return true
 	}
+	if m := reConSay.FindStringSubmatch(line); m != nil {
+		msg := ChatMsg{Name: "Console", Msg: m[1]}
+		h.chat = append(h.chat, msg)
+		if len(h.chat) > 100 {
+			h.chat = h.chat[len(h.chat)-100:]
+		}
+		h.broadcastLocked(event{Type: "chat", Data: msg})
+		return false
+	}
 	if m := reConnect.FindStringSubmatch(line); m != nil {
-		h.ensureLocked(player(m, 1))
+		p := player(m, 1)
+		rp := h.ensureLocked(p)
+		if m[5] != "" && m[5] != "(unknown)" {
+			rp.Addr = m[5]
+		}
+		// panel-side ban enforcement: kick the moment a banned id connects
+		if h.bans != nil && h.onBanned != nil && h.bans.Match(p.steamID, rp.Addr) {
+			go h.onBanned(p.userID)
+		}
 		return true
 	}
 	if m := reDisconn.FindStringSubmatch(line); m != nil {

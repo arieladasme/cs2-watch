@@ -13,6 +13,10 @@
 	let tab = $state('log');
 	let meta = $state({ quick_commands: [], maps: [] });
 	let mapSel = $state('');
+	let bansList = $state([]);
+	let sayMsg = $state('');
+	let banSteamId = $state('');
+	let banReason = $state('');
 	let logBox = $state(null);
 	let chatBox = $state(null);
 	let consoleBox = $state(null);
@@ -91,6 +95,69 @@
 
 	function kick(p) {
 		if (confirm(`Kick ${p.name}?`)) run(`kickid ${p.userid}`);
+	}
+
+	async function api(path, body) {
+		const r = await fetch(path, {
+			method: body ? 'POST' : 'GET',
+			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+			body: body ? JSON.stringify(body) : undefined
+		});
+		return r.ok ? r.json() : Promise.reject(new Error(r.status));
+	}
+
+	async function loadBans() {
+		try {
+			bansList = (await api('/api/bans')) ?? [];
+		} catch {}
+	}
+
+	async function ban(p) {
+		const reason = prompt(`Ban ${p.name} — razón:`);
+		if (reason === null) return;
+		try {
+			await api('/api/bans', { steamid: p.steamid, name: p.name, reason });
+			consoleLog.push({ command: `ban ${p.name}`, output: `banned ${p.steamid}` });
+			loadBans();
+		} catch (err) {
+			consoleLog.push({ command: `ban ${p.name}`, output: `error: ${err.message}` });
+		}
+	}
+
+	async function manualBan(e) {
+		e.preventDefault();
+		const steamid = banSteamId.trim();
+		if (!steamid) return;
+		try {
+			await api('/api/bans', { steamid, reason: banReason.trim() });
+			banSteamId = '';
+			banReason = '';
+			loadBans();
+		} catch (err) {
+			alert(`error: ${err.message}`);
+		}
+	}
+
+	async function unban(steamid) {
+		if (!confirm(`Unban ${steamid}?`)) return;
+		await api('/api/unban', { steamid }).catch(() => {});
+		loadBans();
+	}
+
+	function sendSay(e) {
+		e.preventDefault();
+		const msg = sayMsg.trim();
+		sayMsg = '';
+		if (msg) run(`say ${msg}`);
+	}
+
+	function copySid(sid) {
+		navigator.clipboard?.writeText(sid);
+	}
+
+	function openTab(t) {
+		tab = t;
+		if (t === 'bans') loadBans();
 	}
 
 	function changeMap() {
@@ -184,17 +251,26 @@
 		<aside>
 			{#if hasRoster}
 				<table>
-					<thead><tr><th></th><th>player</th><th>K</th><th>D</th><th>A</th><th>HS</th><th></th></tr></thead>
+					<thead><tr><th></th><th>player</th><th>K</th><th>D</th><th>ping</th><th></th></tr></thead>
 					<tbody>
 						{#each roster as p}
 							<tr>
 								<td class="team {p.team === 'TERRORIST' ? 't' : p.team === 'CT' ? 'ct' : ''}">{teamTag(p.team)}</td>
-								<td class="name" title={p.steamid}>{p.name}{p.bot ? ' 🤖' : ''}</td>
+								<td class="name" title="A: {p.assists} · HS: {hsPct(p)}{p.addr ? ' · ' + p.addr.split(':')[0] : ''}">
+									<div>{p.name}{p.bot ? ' 🤖' : ''}</div>
+									{#if !p.bot && p.steamid}
+										<button class="sid" title="click = copiar" onclick={() => copySid(p.steamid)}>{p.steamid}</button>
+									{/if}
+								</td>
 								<td class="num">{p.frags}</td>
 								<td class="num">{p.deaths}</td>
-								<td class="num">{p.assists}</td>
-								<td class="num">{hsPct(p)}</td>
-								<td><button class="kickbtn" title="kick" onclick={() => kick(p)}>✕</button></td>
+								<td class="num">{p.bot ? '—' : p.ping}</td>
+								<td class="acts">
+									<button class="kickbtn" title="kick" onclick={() => kick(p)}>✕</button>
+									{#if !p.bot && p.steamid}
+										<button class="banbtn" title="ban" onclick={() => ban(p)}>⛔</button>
+									{/if}
+								</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -215,8 +291,9 @@
 
 		<section class="right">
 			<nav class="tabs">
-				<button class:active={tab === 'log'} onclick={() => (tab = 'log')}>Log</button>
-				<button class:active={tab === 'chat'} onclick={() => (tab = 'chat')}>Chat {chat.length ? `(${chat.length})` : ''}</button>
+				<button class:active={tab === 'log'} onclick={() => openTab('log')}>Log</button>
+				<button class:active={tab === 'chat'} onclick={() => openTab('chat')}>Chat {chat.length ? `(${chat.length})` : ''}</button>
+				<button class:active={tab === 'bans'} onclick={() => openTab('bans')}>Bans {bansList.length ? `(${bansList.length})` : ''}</button>
 			</nav>
 			{#if tab === 'log'}
 				<div class="log" bind:this={logBox}>
@@ -224,7 +301,7 @@
 						<div class="line {lineClass(line)}">{line}</div>
 					{/each}
 				</div>
-			{:else}
+			{:else if tab === 'chat'}
 				<div class="log chatlog" bind:this={chatBox}>
 					{#each chat as c}
 						<div class="line">
@@ -234,6 +311,35 @@
 					{:else}
 						<div class="empty">no chat yet</div>
 					{/each}
+				</div>
+				<form class="sayform" onsubmit={sendSay}>
+					<input placeholder="decir algo en el server…" bind:value={sayMsg} />
+					<button>say</button>
+				</form>
+			{:else}
+				<div class="log banspane">
+					<form class="banform" onsubmit={manualBan}>
+						<input placeholder="steamid ([U:1:xxxx])" bind:value={banSteamId} />
+						<input placeholder="razón" bind:value={banReason} />
+						<button>ban offline</button>
+					</form>
+					<table>
+						<thead><tr><th>name</th><th>steamid</th><th>ip</th><th>razón</th><th>fecha</th><th></th></tr></thead>
+						<tbody>
+							{#each bansList as b}
+								<tr>
+									<td>{b.name || '—'}</td>
+									<td><button class="sid" onclick={() => copySid(b.steamid)}>{b.steamid}</button></td>
+									<td>{b.ip ? b.ip.split(':')[0] : '—'}</td>
+									<td>{b.reason || '—'}</td>
+									<td>{new Date(b.created_at).toLocaleString()}</td>
+									<td><button class="kickbtn" onclick={() => unban(b.steamid)}>unban</button></td>
+								</tr>
+							{:else}
+								<tr><td colspan="6" class="empty">sin bans</td></tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			{/if}
 		</section>
@@ -295,7 +401,7 @@
 	.actions .sep { width: 1px; height: 1.2rem; background: #2a333c; margin: 0 0.3rem; }
 	main {
 		display: grid;
-		grid-template-columns: 340px 1fr;
+		grid-template-columns: 400px 1fr;
 		min-height: 0;
 	}
 	aside { border-right: 1px solid #232b33; overflow-y: auto; }
@@ -307,7 +413,7 @@
 	.team { font-weight: bold; }
 	.team.ct { color: #6ea8dc; }
 	.team.t { color: #d9a05b; }
-	.kickbtn {
+	.kickbtn, .banbtn {
 		background: none;
 		border: none;
 		color: #5a646c;
@@ -315,6 +421,22 @@
 		padding: 0 0.2rem;
 	}
 	.kickbtn:hover { color: #e06c60; }
+	.banbtn:hover { color: #e8a33d; }
+	.acts { white-space: nowrap; }
+	.sid {
+		background: none;
+		border: none;
+		color: #5a92b8;
+		cursor: pointer;
+		font-size: 11px;
+		padding: 0;
+		font-family: inherit;
+	}
+	.sid:hover { text-decoration: underline; }
+	.sayform, .banform { display: flex; gap: 0.4rem; padding: 0.4rem 0.6rem; border-top: 1px solid #232b33; }
+	.sayform input, .banform input { flex: 1; }
+	.banform { border-top: none; padding: 0 0 0.5rem 0; }
+	.banspane table { font-size: 12px; }
 	.empty { color: #5a646c; padding: 0.5rem; }
 	.right { display: flex; flex-direction: column; min-height: 0; }
 	.tabs { display: flex; border-bottom: 1px solid #232b33; }

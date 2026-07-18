@@ -25,6 +25,7 @@ type Config struct {
 	AuthToken     string         `json:"auth_token"`     // static token for the panel API/SSE
 	QuickCommands []QuickCommand `json:"quick_commands"` // action-bar buttons; sensible defaults if empty
 	Maps          []string       `json:"maps"`           // quick changelevel list; hidden if empty
+	BansFile      string         `json:"bans_file"`      // panel-enforced ban list, default bans.json
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -41,6 +42,9 @@ func loadConfig(path string) (*Config, error) {
 	}
 	if cfg.Listen == "" {
 		cfg.Listen = "127.0.0.1:8080"
+	}
+	if cfg.BansFile == "" {
+		cfg.BansFile = "bans.json"
 	}
 	if len(cfg.QuickCommands) == 0 {
 		cfg.QuickCommands = []QuickCommand{
@@ -65,12 +69,20 @@ func main() {
 	rc := NewRconClient(cfg.GameServer, cfg.RconPassword)
 	hub := NewHub(5000)
 
+	bans := LoadBans(cfg.BansFile)
+	hub.SetBanEnforcement(bans, func(userid int) {
+		if _, err := rc.Exec(fmt.Sprintf("kickid %d", userid)); err != nil {
+			log.Printf("ban enforcement: kickid %d failed: %v", userid, err)
+		}
+	})
+
 	mux := http.NewServeMux()
-	registerAPI(mux, cfg, rc, hub)
+	registerAPI(mux, cfg, rc, hub, bans)
 	registerIngest(mux, cfg, hub)
 	registerWeb(mux)
 	go logAddressLoop(cfg, rc, hub)
 	go a2sLoop(cfg, hub)
+	go statusLoop(rc, hub)
 
 	srv := &http.Server{
 		Addr:              cfg.Listen,

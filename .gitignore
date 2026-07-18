@@ -1,4 +1,5 @@
 config.json
+bans.json
 *.exe
 web/node_modules/
 web/.svelte-kit/
