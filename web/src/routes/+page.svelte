@@ -229,6 +229,10 @@
 			</form>
 		{/if}
 		<label class="scroll"><input type="checkbox" bind:checked={autoscroll} /> autoscroll</label>
+		<span class="links">
+			<a href="https://github.com/arieladasme/cs2-watch" target="_blank" rel="noopener">GitHub</a>
+			<a href="https://ko-fi.com/arieladasme" target="_blank" rel="noopener" title="apoya el proyecto">☕</a>
+		</span>
 	</header>
 
 	{#if connected}
@@ -389,6 +393,9 @@
 	.count, .phase { color: #8a949c; }
 	.tokenform, footer form { display: flex; gap: 0.4rem; flex: 1; }
 	.scroll { margin-left: auto; color: #8a949c; user-select: none; }
+	.links { display: flex; gap: 0.7rem; }
+	.links a { color: #8a949c; text-decoration: none; }
+	.links a:hover { color: #e8a33d; }
 	.actions {
 		display: flex;
 		align-items: center;

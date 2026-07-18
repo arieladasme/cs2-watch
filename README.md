@@ -90,6 +90,13 @@ Real log samples captured from a live CS2 server (including the `X-Game-*` heade
 - Log history + search (SQLite)
 - Multi-server support
 
+## ❤️ Support
+
+If cs2-watch makes running your server easier, you can support its development:
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-☕_buy_me_a_coffee-ff5e5b?logo=kofi&logoColor=white)](https://ko-fi.com/arieladasme)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub_Sponsors-❤-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/arieladasme)
+
 ## License
 
 MIT
