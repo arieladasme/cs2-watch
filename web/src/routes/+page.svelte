@@ -265,7 +265,7 @@
 							<tr>
 								<td class="team {p.team === 'TERRORIST' ? 't' : p.team === 'CT' ? 'ct' : ''}">{teamTag(p.team)}</td>
 								<td class="name" title="A: {p.assists} · HS: {hsPct(p)}{p.addr ? ' · ' + p.addr.split(':')[0] : ''}">
-									<div>{p.name}{p.bot ? ' 🤖' : ''}</div>
+									<div>{p.bot ? '[BOT] ' : ''}{p.name}</div>
 									{#if !p.bot && p.steamid}
 										<button class="sid" title="click = copiar" onclick={() => copySid(p.steamid)}>{p.steamid}</button>
 									{/if}
