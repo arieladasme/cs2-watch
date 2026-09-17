@@ -74,6 +74,8 @@ The game server must reach `/ingest`. With [`cloudflared.exe`](https://github.co
 | `auth_token` | Static token for the panel UI/API | — required |
 | `listen` | Panel bind address | `127.0.0.1:8080` |
 | `ingest_url` | URL the game server POSTs logs to | — |
+| `maps` | Static map list for the changelevel picker | — |
+| `maps_command` | RCON command that prints the server's maps, one `name [workshop_id]` per line; asked live, overrides `maps`. Workshop maps change with `host_workshop_map` | — |
 
 ## Security model
 

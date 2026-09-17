@@ -85,3 +85,10 @@ func TestParserRealCaptureSweep(t *testing.T) {
 		t.Errorf("roster from real capture = %d, want >= 5 bots", got)
 	}
 }
+
+func TestParseMapList(t *testing.T) {
+	got := parseMapList("ar_shoots\nfy_iceworld 3070238628\r\n\nUnknown command \"ggx_maps\"\nggx_maps: file not found\n")
+	if len(got) != 2 || got[0] != (MapEntry{Name: "ar_shoots"}) || got[1] != (MapEntry{Name: "fy_iceworld", WorkshopID: "3070238628"}) {
+		t.Fatalf("got %+v", got)
+	}
+}

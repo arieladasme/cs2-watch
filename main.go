@@ -25,6 +25,7 @@ type Config struct {
 	AuthToken     string         `json:"auth_token"`     // static token for the panel API/SSE
 	QuickCommands []QuickCommand `json:"quick_commands"` // action-bar buttons; sensible defaults if empty
 	Maps          []string       `json:"maps"`           // quick changelevel list; hidden if empty
+	MapsCommand   string         `json:"maps_command"`   // RCON command listing the server's maps ("name [workshop id]" per line); overrides maps
 	BansFile      string         `json:"bans_file"`      // panel-enforced ban list, default bans.json
 }
 

@@ -161,7 +161,7 @@
 	}
 
 	function changeMap() {
-		if (mapSel) run(`changelevel ${mapSel}`);
+		if (mapSel) run(mapSel);
 	}
 
 	function hsPct(p) {
@@ -206,7 +206,11 @@
 	onMount(() => {
 		token = localStorage.getItem('cs2watch_token') ?? '';
 		if (token) connect();
-		return () => es?.close();
+		const metaTimer = setInterval(() => token && fetchMeta(), 60000); // map pool can change server-side
+		return () => {
+			es?.close();
+			clearInterval(metaTimer);
+		};
 	});
 </script>
 
@@ -244,7 +248,7 @@
 				<span class="sep"></span>
 				<select bind:value={mapSel}>
 					<option value="" disabled selected>map…</option>
-					{#each meta.maps as m}<option value={m}>{m}</option>{/each}
+					{#each meta.maps as m}<option value={m.workshop_id ? `host_workshop_map ${m.workshop_id}` : `changelevel ${m.name}`}>{m.name}</option>{/each}
 				</select>
 				<button onclick={changeMap} disabled={!mapSel}>changelevel</button>
 			{/if}

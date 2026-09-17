@@ -25,6 +25,27 @@ func authed(cfg *Config, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+type MapEntry struct {
+	Name       string `json:"name"`
+	WorkshopID string `json:"workshop_id,omitempty"`
+}
+
+// parseMapList reads "name [workshop id]" lines. Anything else (an "Unknown command"
+// reply, an error message) is skipped rather than shown as a map.
+func parseMapList(out string) []MapEntry {
+	maps := []MapEntry{}
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		switch {
+		case len(f) == 1:
+			maps = append(maps, MapEntry{Name: f[0]})
+		case len(f) == 2 && strings.Trim(f[1], "0123456789") == "":
+			maps = append(maps, MapEntry{Name: f[0], WorkshopID: f[1]})
+		}
+	}
+	return maps
+}
+
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)
@@ -52,7 +73,16 @@ func registerAPI(mux *http.ServeMux, cfg *Config, rc *RconClient, hub *Hub, bans
 	}))
 
 	mux.HandleFunc("GET /api/meta", authed(cfg, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"quick_commands": cfg.QuickCommands, "maps": cfg.Maps})
+		maps := make([]MapEntry, 0, len(cfg.Maps))
+		for _, m := range cfg.Maps {
+			maps = append(maps, MapEntry{Name: m})
+		}
+		if cfg.MapsCommand != "" { // asked live on every call, so the picker follows the server's pool
+			if out, err := rc.Exec(cfg.MapsCommand); err == nil {
+				maps = parseMapList(out)
+			}
+		}
+		writeJSON(w, map[string]any{"quick_commands": cfg.QuickCommands, "maps": maps})
 	}))
 
 	mux.HandleFunc("GET /api/bans", authed(cfg, func(w http.ResponseWriter, r *http.Request) {
