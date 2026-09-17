@@ -61,6 +61,10 @@ No plugins to install on the game server. No database. One binary.
    # → http://127.0.0.1:8080  (paste your auth_token once)
    ```
 
+### Remote game server (panel behind NAT)
+
+The game server must reach `/ingest`. With [`cloudflared.exe`](https://github.com/cloudflare/cloudflared/releases) next to the binary, double-click `start.cmd`: it opens a quick tunnel, writes the new `ingest_url` into `config.json`, removes the previous run's log address from the server and opens the panel. Close with Ctrl+C.
+
 ## Config reference
 
 | Key | Meaning | Default |
