@@ -221,6 +221,7 @@
 		<span class="brand">cs2-watch</span>
 		<span class="dot" class:on={connected}></span>
 		{#if connected || game.map}
+			{#if meta.server}<span class="ip">IP {meta.server}</span>{/if}
 			<span class="map">{game.map || '—'}</span>
 			<span class="phase">{game.game_state || '—'}</span>
 			<span class="score"><b class="ct">CT {game.score_ct || 0}</b> : <b class="t">{game.score_t || 0} T</b></span>
@@ -395,6 +396,7 @@
 	.ct { color: #6ea8dc; }
 	.t { color: #d9a05b; }
 	.count, .phase { color: #8a949c; }
+	.ip { color: #e8e8e8; user-select: all; }
 	.tokenform, footer form { display: flex; gap: 0.4rem; flex: 1; }
 	.scroll { margin-left: auto; color: #8a949c; user-select: none; }
 	.links { display: flex; gap: 0.7rem; }

@@ -82,7 +82,7 @@ func registerAPI(mux *http.ServeMux, cfg *Config, rc *RconClient, hub *Hub, bans
 				maps = parseMapList(out)
 			}
 		}
-		writeJSON(w, map[string]any{"quick_commands": cfg.QuickCommands, "maps": maps})
+		writeJSON(w, map[string]any{"quick_commands": cfg.QuickCommands, "maps": maps, "server": cfg.GameServer})
 	}))
 
 	mux.HandleFunc("GET /api/bans", authed(cfg, func(w http.ResponseWriter, r *http.Request) {
